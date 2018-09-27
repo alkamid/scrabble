@@ -56,13 +56,14 @@ class Tournament(object):
                 who_first_list = [int(a) for a in fields.pop(who_first_field)[4:].strip().split()]
 
                 assert all([a == 1 or a == 2 or a == 0 for a in who_first_list])
-                print(scores)
-                print(opponents)
-                print(boards)
-                print(who_first_list)
                 assert len(scores) == len(opponents) == len(boards) == len(who_first_list)
                 round_no = 1
                 for score, opponent, board, who_first in zip(scores, opponents, boards, who_first_list):
+                    if self.num_rounds is None:
+                        self.num_rounds = round_no
+                    elif round_no > self.num_rounds:
+                        self.num_rounds = round_no
+
                     if opponent == 0 and board == 0:
                         self.games.append(Game(round_no, board, id1=player_id, score1=score))
                     elif opponent > player_id:
@@ -95,7 +96,15 @@ class Tournament(object):
         raise NotImplementedError
 
     def export_tin(self, output_filename: Union[str, Path]) -> None:
-        raise NotImplementedError
+        num_players = len(self.players)
+        player_numbers = list(i+1 for i in range(num_players))
+        with open(output_filename, 'wb') as f:
+            f.write(pack('=H', num_players))
+            f.write(pack('=H', self.num_rounds))
+            f.write(pack('=H', 0))  # nWakat
+            f.write(pack('=7H', 0, 0, 0, 0, 0, 0, 0))
+            f.write(pack(f'={num_players}H', *player_numbers))
+            f.write(pack('=2H', 1, 3))
 
     def export_re(self, output_filename: Union[str, Path]) -> None:
         struct_fmt = '=bBHHH'
@@ -148,10 +157,10 @@ class Player(object):
         return f'{first_name} {last_name}\t{self.rating}'
 
 
-
 tour = Tournament()
 tour.read_from_t('a.t')
 tour.export_re('/home/adam/Downloads/test.re')
+tour.export_tin('/home/adam/Downloads/test.tin')
 for g in tour.games:
     print(g)
 for p in tour.players:
