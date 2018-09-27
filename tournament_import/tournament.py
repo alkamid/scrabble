@@ -1,4 +1,5 @@
 from pathlib import Path
+from struct import pack
 import re
 from typing import Union, List
 
@@ -96,8 +97,38 @@ class Tournament(object):
     def export_tin(self, output_filename: Union[str, Path]) -> None:
         raise NotImplementedError
 
-    def export_re(self) -> None:
-        raise NotImplementedError
+    def export_re(self, output_filename: Union[str, Path]) -> None:
+        struct_fmt = '=bBHHH'
+        with open(output_filename, 'wb') as f:
+            for player in self.players:
+                games = self.get_players_games(player.id)
+                for game in games:
+                    result = None
+                    if game.score1 == game.score2:
+                        result = 1
+                    if game.player2 is None and game.score2 is None:
+                        result = 2  # not sure why BYE result is the same as win result
+                        state = 3
+                    else:
+                        state = 1 if player.id == game.player1 else 2
+                    if player.id == game.player1:
+                        score = game.score1
+                        opponent = game.player2 or 0
+                        if result is None:
+                            result = 2*int(game.score1 > game.score2)
+                    else:
+                        score = game.score2
+                        opponent = game.player1 or 0
+                        if result is None:
+                            result = 2*int(game.score2 > game.score1)
+
+                    struct_packed = pack(struct_fmt, state, game.board, result, score, opponent)
+                    f.write(struct_packed)
+                last_game = pack(struct_fmt, 0, 0, 32767, 32767, 0)
+                f.write(last_game)
+            last_three = pack(struct_fmt, 1, 0, 14, 32767, 0)
+            for i in range(3):
+                f.write(last_three)
 
     def get_players_games(self, player_id: int) -> List[Game]:
         games_list = [g for g in self.games if g.player1 == player_id or g.player2 == player_id]
@@ -120,6 +151,7 @@ class Player(object):
 
 tour = Tournament()
 tour.read_from_t('a.t')
+tour.export_re('/home/adam/Downloads/test.re')
 for g in tour.games:
     print(g)
 for p in tour.players:
