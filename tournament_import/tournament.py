@@ -2,6 +2,7 @@ from pathlib import Path
 from struct import pack
 import re
 from typing import Union, List
+from string_encoder import encode_string
 
 
 class Game(object):
@@ -93,7 +94,11 @@ class Tournament(object):
         raise NotImplementedError
 
     def export_lte(self, output_filename: Union[str, Path]) -> None:
-        raise NotImplementedError
+        miasto = 'miasto'
+        with open(output_filename, 'wb') as f:
+            for player in self.players:
+                player_desc = f'{player.name: <36}{player.rating: <6}{miasto: <25}'
+                f.write(encode_string(player_desc))
 
     def export_tin(self, output_filename: Union[str, Path]) -> None:
         num_players = len(self.players)
@@ -157,10 +162,14 @@ class Player(object):
         return f'{first_name} {last_name}\t{self.rating}'
 
 
+
+
+
 tour = Tournament()
 tour.read_from_t('a.t')
 tour.export_re('/home/adam/Downloads/test.re')
 tour.export_tin('/home/adam/Downloads/test.tin')
+tour.export_lte('/home/adam/Downloads/test.lte')
 for g in tour.games:
     print(g)
 for p in tour.players:
