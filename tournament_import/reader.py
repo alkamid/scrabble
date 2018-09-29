@@ -11,6 +11,18 @@ def read_chunks(f, length):
         yield data
 
 
+def read_lte(filename: Union[str, Path]) -> List[Tuple[str, str, float]]:
+    with open(filename, "rb") as f:
+        while True:
+            player_data = f.read(36+6+25)
+            if not player_data:
+                break
+            name = player_data[:36]
+            rating = float(player_data[36:42])
+            town = player_data[42:]
+            print(name, rating, town)
+
+
 def read_re(filename: Union[str, Path]) -> List[Tuple[int, int, int, int, int]]:
     struct_fmt = '=bBHHH'
     struct_len = struct.calcsize(struct_fmt)
@@ -41,10 +53,15 @@ def read_tin(filename: Union[str, Path]) -> Tuple[int, int, Tuple[int, int]]:
 
     return num_players, num_rounds, flags
 
-# filename = '/home/adam/Downloads/Poznan_2018_export/poznan.re'
-# res = read_re(filename)
-#print(res[:10])
-
+filename = '/home/adam/Downloads/Poznan_2018_export/poznan.re'
+# filename = '/home/adam/Downloads/test.re'
+filename_tin = '/home/adam/Downloads/test.tin'
+res = read_re(filename)
+print(res)
+res2 = read_tin(filename_tin)
+print(res2)
+filename_lte = '/home/adam/Downloads/Poznan_2018_export/poznan.lte'
+res3 = read_lte(filename_lte)
 
 
 
