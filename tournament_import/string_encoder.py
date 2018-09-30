@@ -6,15 +6,20 @@ _encode_table.update({'ą': b'\xa0',
                       'ć': b'\x9b',
                       'ę': b'\x82',
                       'ł': b'\x9f',
-                      'Ł': b'\x9c',
                       'ń': b'\xa4',
                       'ó': b'\xa2',
                       'ś': b'\x87',
-                      'Ś': b'\x98',
-                      'ź': b'\xa8',
                       'ż': b'\x91',
+                      'ź': b'\xa8',
+                      'Ą': b'\x8f',
+                      'Ć': b'\x80',
+                      'Ę': b'\x90',
+                      'Ł': b'\x9c',
+                      'Ń': b'\xa5',
+                      'Ó': b'\x93',
+                      'Ś': b'\x98',
                       'Ż': b'\x92',
-                      ' ': b' '})
+                      'Ź': b'\x9d',})
 
 _decode_table = {ord(v): k for k, v in _encode_table.items()}
 
