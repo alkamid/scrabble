@@ -19,7 +19,8 @@ _encode_table.update({'ą': b'\xa0',
                       'Ó': b'\x93',
                       'Ś': b'\x98',
                       'Ż': b'\x92',
-                      'Ź': b'\x9d',})
+                      'Ź': b'\x9d',
+                      ' ': b' '})
 
 _decode_table = {ord(v): k for k, v in _encode_table.items()}
 

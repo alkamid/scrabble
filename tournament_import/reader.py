@@ -1,7 +1,7 @@
 import struct
 from pathlib import Path
 from typing import List, Tuple, Union
-from .string_encoder import decode_string
+from string_encoder import decode_string
 
 
 def read_chunks(f, length):
@@ -17,12 +17,11 @@ def read_lte(filename: Union[str, Path]) -> List[Tuple[str, str, float]]:
     with open(filename, "rb") as f:
         while True:
             player_data = decode_string(f.read(36+6+25))
-            # player_data = f.read(36+6+25)
             if not player_data:
                 break
-            name = player_data[:36]
+            name = player_data[:36].strip()
             rating = float(player_data[36:42])
-            town = player_data[42:]
+            town = player_data[42:].strip()
             players.append((name, town, rating))
     return players
 
@@ -57,17 +56,7 @@ def read_tin(filename: Union[str, Path]) -> Tuple[int, int, Tuple[int, int]]:
 
     return num_players, num_rounds, flags
 
-# filename = '/home/adam/Downloads/Poznan_2018_export/poznan.re'
-# # filename = '/home/adam/Downloads/test.re'
-# filename_tin = '/home/adam/Downloads/test.tin'
-# res = read_re(filename)
-# print(res)
-# res2 = read_tin(filename_tin)
-# print(res2)
-filename_lte = '/home/adam/Downloads/Poznan_2018_export/poznan.lte'
-res3 = read_lte(filename_lte)
-print(res3)
 
-
-res = read_tin('/home/adam/Downloads/Poznan_2018_export/poznan.tin')
+filename = '/home/adam/code/tsh/samplepl/a.re'
+res = read_re(filename)
 print(res)

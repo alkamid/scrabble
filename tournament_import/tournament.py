@@ -1,7 +1,8 @@
 from pathlib import Path
 from struct import pack
 import re
-from typing import Union, List
+from os import utime
+from typing import Union, List, Optional
 from string_encoder import encode_string
 
 
@@ -20,7 +21,9 @@ class Game(object):
 
 
 class Tournament(object):
-    def __init__(self) -> None:
+    def __init__(self, name: str, date: Optional[str]=None) -> None:
+        self.name = name
+        self.date = date
         self.num_rounds = None
         self.players = []
         self.games = []
@@ -33,11 +36,18 @@ class Tournament(object):
             for line in f:
                 re_split_line = re.search(re_name, line)
                 fields = re_split_line.group(2).split(';')
+                print(fields)
                 rating_and_opponents = fields.pop(0).split()
                 name = re_split_line.group(1).strip()
                 rating = rating_and_opponents[0]
-                new_player = Player(player_id, name)
-                new_player.rating = float(rating)
+
+                team_field = 0
+                for field in fields:
+                    if field.startswith(' TEAM'):
+                        break
+                    team_field += 1
+                team = fields.pop(team_field)[5:].strip()
+                new_player = Player(player_id, name, float(rating), team)
                 self.players.append(new_player)
                 opponents = [int(a) for a in rating_and_opponents[1:]]
                 scores = [int(a) for a in fields.pop(0).strip().split()]
@@ -86,18 +96,19 @@ class Tournament(object):
                                     assert game.score2 is None
                                     game.player2 = player_id
                                     game.score2 = score
-                    round_no +=1
+                    round_no += 1
 
                 player_id += 1
 
-    def export_nag(self, output_filename: Union[str, Path]) -> None:
-        raise NotImplementedError
+    def export_nag(self, tournament_name: str, output_filename: Union[str, Path]) -> None:
+        with open(output_filename, 'wb') as f:
+            f.write(encode_string(tournament_name))
 
     def export_lte(self, output_filename: Union[str, Path]) -> None:
-        miasto = 'miasto'
         with open(output_filename, 'wb') as f:
             for player in self.players:
-                player_desc = f'{player.name: <36}{player.rating: <6}{miasto: <25}'
+                name = f'{player.first_name} {player.last_name}'
+                player_desc = f'{name: <36}{player.rating: <6.2f}{player.team: <25}'
                 f.write(encode_string(player_desc))
 
     def export_tin(self, output_filename: Union[str, Path]) -> None:
@@ -111,6 +122,7 @@ class Tournament(object):
             f.write(pack(f'={num_players}H', *player_numbers))
             f.write(pack('=2H', 1, 3))
 
+
     def export_re(self, output_filename: Union[str, Path]) -> None:
         struct_fmt = '=bBHHH'
         with open(output_filename, 'wb') as f:
@@ -118,11 +130,15 @@ class Tournament(object):
                 games = self.get_players_games(player.id)
                 for game in games:
                     result = None
-                    if game.score1 == game.score2:
+                    if game.score1 == game.score2:  # draw
                         result = 1
                     if game.player2 is None and game.score2 is None:
-                        result = 2  # not sure why BYE result is the same as win result
-                        state = 3
+                        if game.score1 == 0:  # did not play
+                            result = 0
+                            state = 0
+                        else:  # BYE
+                            result = 2  # not sure why BYE result is the same as win result
+                            state = 3
                     else:
                         state = 1 if player.id == game.player1 else 2
                     if player.id == game.player1:
@@ -150,27 +166,29 @@ class Tournament(object):
 
 
 class Player(object):
-    def __init__(self, id, name) -> None:
+    def __init__(self, id: int, name: str, rating: Optional[float]=None,
+                 team: Optional[str]=None) -> None:
         self.id = id
         self.name = name
-        self.rating = None
+        name_split = self.name.split(',')
+        self.first_name = name_split[1].strip()
+        self.last_name = name_split[0].strip()
+        self.rating = rating
+        self.team = '' if team is None else team
 
     def __repr__(self) -> str:
-        name_split = self.name.split(',')
-        first_name = name_split[1].strip()
-        last_name = name_split[0].strip()
-        return f'{first_name} {last_name}\t{self.rating}'
-
-
-
+        return f'{self.first_name} {self.last_name}\t{self.team}\t{self.rating}'
 
 
 tour = Tournament()
-tour.read_from_t('a.t')
+tour.read_from_t('/home/adam/code/tsh/samplepl/a.t')
 tour.export_re('/home/adam/Downloads/test.re')
 tour.export_tin('/home/adam/Downloads/test.tin')
 tour.export_lte('/home/adam/Downloads/test.lte')
-for g in tour.games:
-    print(g)
+games = tour.get_players_games(8)
+
+print(games)
+# for g in tour.games:
+#     print(g)
 for p in tour.players:
     print(p)
