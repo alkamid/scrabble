@@ -4,7 +4,7 @@ import re
 from os import utime
 from typing import Union, List, Optional
 from string_encoder import encode_string
-
+from datetime import datetime
 
 class Game(object):
     def __init__(self, round_no: int, board: int, id1: int=None, id2: int=None, score1: int=None, score2: int=None) -> None:
@@ -23,7 +23,10 @@ class Game(object):
 class Tournament(object):
     def __init__(self, name: str, date: Optional[str]=None) -> None:
         self.name = name
-        self.date = date
+        if date is None:
+            self.date = None
+        else:
+            self.date = datetime.strptime(date, format='%d/%m/%Y').timestamp()
         self.num_rounds = None
         self.players = []
         self.games = []
@@ -40,6 +43,15 @@ class Tournament(object):
                 rating_and_opponents = fields.pop(0).split()
                 name = re_split_line.group(1).strip()
                 rating = rating_and_opponents[0]
+
+                if self.date is None:
+                    rtime_field = 0
+                    for field in fields:
+                        if field.startswith(' rtime'):
+                            break
+                        rtime_field += 1
+                    rtimes = fields.pop(rtime_field)[7:].split()
+                    self.date = int(rtimes[0])
 
                 team_field = 0
                 for field in fields:
@@ -100,9 +112,9 @@ class Tournament(object):
 
                 player_id += 1
 
-    def export_nag(self, tournament_name: str, output_filename: Union[str, Path]) -> None:
+    def export_nag(self, output_filename: Union[str, Path]) -> None:
         with open(output_filename, 'wb') as f:
-            f.write(encode_string(tournament_name))
+            f.write(encode_string(self.name))
 
     def export_lte(self, output_filename: Union[str, Path]) -> None:
         with open(output_filename, 'wb') as f:
@@ -121,7 +133,7 @@ class Tournament(object):
             f.write(pack('=7H', 0, 0, 0, 0, 0, 0, 0))
             f.write(pack(f'={num_players}H', *player_numbers))
             f.write(pack('=2H', 1, 3))
-
+        utime(output_filename, times=(self.date, self.date))
 
     def export_re(self, output_filename: Union[str, Path]) -> None:
         struct_fmt = '=bBHHH'
@@ -180,11 +192,12 @@ class Player(object):
         return f'{self.first_name} {self.last_name}\t{self.team}\t{self.rating}'
 
 
-tour = Tournament()
+tour = Tournament('Mistrzostwa TSH')
 tour.read_from_t('/home/adam/code/tsh/samplepl/a.t')
 tour.export_re('/home/adam/Downloads/test.re')
 tour.export_tin('/home/adam/Downloads/test.tin')
 tour.export_lte('/home/adam/Downloads/test.lte')
+tour.export_nag('/home/adam/Downloads/test.nag')
 games = tour.get_players_games(8)
 
 print(games)
