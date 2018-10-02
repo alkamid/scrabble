@@ -142,6 +142,7 @@ class Tournament(object):
                 games = self.get_players_games(player.id)
                 for game in games:
                     result = None
+                    board = game.board
                     if game.score1 == game.score2:  # draw
                         result = 1
                     if game.player2 is None and game.score2 is None:
@@ -149,6 +150,7 @@ class Tournament(object):
                             result = 0
                             state = 0
                         else:  # BYE
+                            board = self.find_last_board_number(game.round) + 1
                             result = 2  # not sure why BYE result is the same as win result
                             state = 3
                     else:
@@ -164,13 +166,20 @@ class Tournament(object):
                         if result is None:
                             result = 2*int(game.score2 > game.score1)
 
-                    struct_packed = pack(struct_fmt, state, game.board, result, score, opponent)
+                    struct_packed = pack(struct_fmt, state, board, result, score, opponent)
                     f.write(struct_packed)
                 last_game = pack(struct_fmt, 0, 0, 32767, 32767, 0)
                 f.write(last_game)
             last_three = pack(struct_fmt, 1, 0, 14, 32767, 0)
             for i in range(3):
                 f.write(last_three)
+
+    def find_last_board_number(self, round_no: int) -> int:
+        games_list = [g for g in self.games if g.round == round_no]
+        max_board = 0
+        for game in games_list:
+            max_board = max(game.board, max_board)
+        return max_board
 
     def get_players_games(self, player_id: int) -> List[Game]:
         games_list = [g for g in self.games if g.player1 == player_id or g.player2 == player_id]
