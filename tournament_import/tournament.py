@@ -4,6 +4,7 @@ import re
 from os import utime
 from typing import Union, List, Optional
 from string_encoder import encode_string
+from reader import read_lte, read_tin, read_re
 from datetime import datetime
 
 class Game(object):
@@ -21,8 +22,10 @@ class Game(object):
 
 
 class Tournament(object):
-    def __init__(self, name: str, date: Optional[str]=None) -> None:
+    def __init__(self, name: str, director: str, location: str, date: Optional[str]=None) -> None:
         self.name = name
+        self.director = director
+        self.location = location
         if date is None:
             self.date = None
         else:
@@ -31,6 +34,42 @@ class Tournament(object):
         self.players = []
         self.games = []
         self.current_round = 0
+
+    def read_from_scrabble_manager(self, filepath: Union[str, Path]) -> None:
+        fpath_no_suffix = str(Path(filepath).parent / Path(filepath).stem)
+        players = read_lte(fpath_no_suffix + '.lte')
+        for i, (name, town, rating) in enumerate(players):
+            name_with_comma = f'{name.split()[-1]}, {name.split()[:-1]}'
+            new_player = Player(i+1, name_with_comma, rating, town)
+            self.players.append(new_player)
+
+        _, self.num_rounds, _ = read_tin(fpath_no_suffix + '.tin')
+        games = read_re(fpath_no_suffix + '.re')
+        for i, (state, board, result, score, opponent) in enumerate(games[:-3]):
+            player_id = i // (self.num_rounds+1) + 1
+            round_no = i % (self.num_rounds+1) + 1
+            if round_no == self.num_rounds+1:
+                continue
+            if opponent == 0:
+                self.games.append(Game(round_no, board=0, id1=player_id, score1=score))
+            elif opponent > player_id:
+                if state == 1:
+                    self.games.append(Game(round_no, board, id1=player_id, score1=score, id2=opponent))
+                elif state == 2:
+                    self.games.append(Game(round_no, board, id1=opponent, id2=player_id, score2=score))
+            else:
+                for game in self.games:
+                    if game.round == round_no and game.board == board:
+                        if state == 1:
+                            assert game.player1 == player_id
+                            assert game.player2 == opponent
+                            assert game.score1 is None
+                            game.score1 = score
+                        else:
+                            assert game.player2 == player_id
+                            assert game.player1 == opponent
+                            assert game.score2 is None
+                            game.score2 = score
 
     def read_from_t(self, filepath: Union[str, Path]) -> None:
         re_name = re.compile('(.*?)([0-9].*)')
@@ -170,9 +209,30 @@ class Tournament(object):
                     f.write(struct_packed)
                 last_game = pack(struct_fmt, 0, 0, 32767, 32767, 0)
                 f.write(last_game)
-            last_three = pack(struct_fmt, 1, 0, 14, 32767, 0)
+            last_three = pack(struct_fmt, 1, 0, self.num_rounds + 1, 32767, 0)
             for i in range(3):
                 f.write(last_three)
+
+    def export_smt(self, output_filename: Union[str, Path]) -> None:
+        midnight_today = datetime.fromtimestamp(self.date)
+        days_from_1900 = (midnight_today - datetime(1899, 12, 30, 0, 0)).days
+        days_str = f'{days_from_1900:.6f}'
+        with open(output_filename, 'wb') as f:
+            f.write(bytes(days_str, 'ascii'))
+            f.write(b'\r\n')
+            f.write(bytes(self.location, 'cp1250'))
+            f.write(b'\r\n')
+            f.write(bytes(self.director, 'cp1250'))
+            f.write(b'\r\n')
+            f.write(b'1\r\n1\r\n0\r\n1\r\n3\r\n')
+            for r in range(self.num_rounds-1):
+                f.write(bytes(f'{r+1} 1', 'ascii'))
+                f.write(b'\r\n')
+            f.write(bytes(f'{self.num_rounds} 3', 'ascii'))
+            f.write(b'\r\n')
+            for p in range(len(self.players)):
+                f.write(bytes(f'{p+1} 0.000 0 1', 'ascii'))
+                f.write(b'\r\n')
 
     def find_last_board_number(self, round_no: int) -> int:
         games_list = [g for g in self.games if g.round == round_no]
@@ -201,12 +261,13 @@ class Player(object):
         return f'{self.first_name} {self.last_name}\t{self.team}\t{self.rating}'
 
 
-tour = Tournament('Mistrzostwa TSH')
+tour = Tournament('Mistrzostwa TSH', 'Adam Kłimónt', 'Cambridge')
 tour.read_from_t('/home/adam/code/tsh/samplepl/a.t')
 tour.export_re('/home/adam/Downloads/test.re')
 tour.export_tin('/home/adam/Downloads/test.tin')
 tour.export_lte('/home/adam/Downloads/test.lte')
 tour.export_nag('/home/adam/Downloads/test.nag')
+tour.export_smt('/home/adam/Downloads/test.smt')
 games = tour.get_players_games(8)
 
 print(games)
@@ -214,3 +275,8 @@ print(games)
 #     print(g)
 for p in tour.players:
     print(p)
+
+newtour = Tournament('Poznań', 'Grzegorz', 'Poznań')
+newtour.read_from_scrabble_manager('/home/adam/Downloads/Poznan_2018_export/poznan.re')
+for g in newtour.games:
+    print(g)
