@@ -7,6 +7,7 @@ from string_encoder import encode_string
 from reader import read_lte, read_tin, read_re
 from datetime import datetime
 
+
 class Game(object):
     def __init__(self, round_no: int, board: int, id1: int=None, id2: int=None, score1: int=None, score2: int=None) -> None:
         self.round = round_no
@@ -130,25 +131,22 @@ class Tournament(object):
                         self.games.append(Game(round_no, board, id1=player_id, score1=score))
                     elif opponent > player_id:
                         if who_first == 1:
-                            new_game = Game(round_no, board, id1=player_id, score1=score)
+                            new_game = Game(round_no, board, id1=player_id, score1=score, id2=opponent)
                         else:
-                            new_game = Game(round_no, board, id2=player_id, score2=score)
+                            new_game = Game(round_no, board, id2=player_id, score2=score, id1=opponent)
                         self.games.append(new_game)
                     else:
                         for game in self.games:
                             if game.round == round_no and game.board == board:
                                 if who_first == 1:
-                                    assert game.player1 is None
+                                    assert game.player1 == player_id
                                     assert game.score1 is None
-                                    game.player1 = player_id
                                     game.score1 = score
                                 else:
-                                    assert game.player2 is None
+                                    assert game.player2 == player_id
                                     assert game.score2 is None
-                                    game.player2 = player_id
                                     game.score2 = score
                     round_no += 1
-
                 player_id += 1
 
     def export_t(self, output_filename: Union[str, Path], last_round: int=None) -> None:
@@ -185,7 +183,6 @@ class Tournament(object):
                 f.write('p12 ' + " ".join(player_info['p12']) + '; ')
                 f.write('TEAM ' + player.team)
                 f.write('\n')
-
 
     def export_nag(self, output_filename: Union[str, Path]) -> None:
         with open(output_filename, 'wb') as f:
@@ -295,23 +292,3 @@ class Player(object):
 
     def __repr__(self) -> str:
         return f'{self.first_name} {self.last_name}\t{self.team}\t{self.rating}'
-
-
-tour = Tournament('Mistrzostwa TSH', 'Adam Kłimónt', 'Cambridge')
-tour.read_from_t('/home/adam/code/tsh/samplepl/a.t')
-tour.export_re('/home/adam/Downloads/test.re')
-tour.export_tin('/home/adam/Downloads/test.tin')
-tour.export_lte('/home/adam/Downloads/test.lte')
-tour.export_nag('/home/adam/Downloads/test.nag')
-tour.export_smt('/home/adam/Downloads/test.smt')
-games = tour.get_players_games(8)
-
-print(games)
-# for g in tour.games:
-#     print(g)
-for p in tour.players:
-    print(p)
-
-newtour = Tournament('Poznań', 'Grzegorz', 'Poznań')
-newtour.read_from_scrabble_manager('/home/adam/Downloads/Poznan_2018_export/poznan.re')
-newtour.export_t('/home/adam/code/tsh/samplepoznan18/a.t', last_round=11)

@@ -55,8 +55,3 @@ def read_tin(filename: Union[str, Path]) -> Tuple[int, int, Tuple[int, int]]:
         flags = flag_unpack(f.read(flag_len))
 
     return num_players, num_rounds, flags
-
-
-filename = '/home/adam/code/tsh/samplepl/a.re'
-res = read_re(filename)
-print(res)
