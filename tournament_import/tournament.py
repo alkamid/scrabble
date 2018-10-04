@@ -2,7 +2,7 @@ from pathlib import Path
 from struct import pack
 import re
 from os import utime
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Dict
 from string_encoder import encode_string
 from reader import read_lte, read_tin, read_re
 from datetime import datetime
@@ -39,7 +39,7 @@ class Tournament(object):
         fpath_no_suffix = str(Path(filepath).parent / Path(filepath).stem)
         players = read_lte(fpath_no_suffix + '.lte')
         for i, (name, town, rating) in enumerate(players):
-            name_with_comma = f'{name.split()[-1]}, {name.split()[:-1]}'
+            name_with_comma = f'{name.split()[-1]}, {" ".join(name.split()[:-1])}'
             new_player = Player(i+1, name_with_comma, rating, town)
             self.players.append(new_player)
 
@@ -150,6 +150,42 @@ class Tournament(object):
                     round_no += 1
 
                 player_id += 1
+
+    def export_t(self, output_filename: Union[str, Path], last_round: int=None) -> None:
+        if last_round is None:
+            last_round = self.num_rounds
+        game_info: List[Dict[str: List[int]]] = [{'round': [], 'board': [], 'p12': [], 'score': [], 'opponent': []} for a in range(len(self.players))]
+        games_sorted = sorted(self.games, key=lambda x: x.round)
+        for game in games_sorted:
+            if game.round > last_round:
+                continue
+            player1_info = game_info[game.player1-1]
+            player1_info['board'].append(str(game.board))
+            player1_info['score'].append(str(game.score1))
+            player1_info['round'].append(game.round)
+            if game.player2 is not None:
+                player1_info['p12'].append('1')
+                player1_info['opponent'].append(str(game.player2))
+                player2_info = game_info[game.player2-1]
+                player2_info['board'].append(str(game.board))
+                player2_info['p12'].append('2')
+                player2_info['score'].append(str(game.score2))
+                player2_info['opponent'].append(str(game.player1))
+                player2_info['round'].append(game.round)
+            else:
+                player1_info['p12'].append('0')
+                player1_info['opponent'].append('0')
+        with open(output_filename, 'w') as f:
+            for i, player_info in enumerate(game_info):
+                player = self.players[i]
+                f.write(f'{player.last_name}, {player.first_name}\t{player.rating} ')
+                f.write(" ".join(player_info["opponent"]) + '; ')
+                f.write(" ".join(player_info['score']) + '; ')
+                f.write('board ' + " ".join(player_info['board']) + '; ')
+                f.write('p12 ' + " ".join(player_info['p12']) + '; ')
+                f.write('TEAM ' + player.team)
+                f.write('\n')
+
 
     def export_nag(self, output_filename: Union[str, Path]) -> None:
         with open(output_filename, 'wb') as f:
@@ -278,5 +314,4 @@ for p in tour.players:
 
 newtour = Tournament('Poznań', 'Grzegorz', 'Poznań')
 newtour.read_from_scrabble_manager('/home/adam/Downloads/Poznan_2018_export/poznan.re')
-for g in newtour.games:
-    print(g)
+newtour.export_t('/home/adam/code/tsh/samplepoznan18/a.t', last_round=11)
