@@ -95,7 +95,7 @@ class Tournament(object):
 
                 team_field = 0
                 for field in fields:
-                    if field.startswith(' TEAM'):
+                    if field.startswith(' team'):
                         break
                     team_field += 1
                 team = fields.pop(team_field)[5:].strip()
@@ -181,7 +181,7 @@ class Tournament(object):
                 f.write(" ".join(player_info['score']) + '; ')
                 f.write('board ' + " ".join(player_info['board']) + '; ')
                 f.write('p12 ' + " ".join(player_info['p12']) + '; ')
-                f.write('TEAM ' + player.team)
+                f.write('team ' + player.team)
                 f.write('\n')
 
     def export_nag(self, output_filename: Union[str, Path]) -> None:
