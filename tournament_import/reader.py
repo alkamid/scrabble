@@ -13,6 +13,14 @@ def read_chunks(f, length):
 
 
 def read_lte(filename: Union[str, Path]) -> List[Tuple[str, str, float]]:
+    """
+    .lte files contain the list of players. It is initially sorted by rating, then
+    latecomers are added to the end of the list. All lines have a fixed width of 67 bytes.
+    Args:
+        filename:
+    Returns:
+        List of tuples (name, town/team, rating)
+    """
     players = []
     with open(filename, "rb") as f:
         while True:
@@ -27,6 +35,20 @@ def read_lte(filename: Union[str, Path]) -> List[Tuple[str, str, float]]:
 
 
 def read_re(filename: Union[str, Path]) -> List[Tuple[int, int, int, int, int]]:
+    """
+    .re files contain tuples of five numbers:
+    - status: 0 - did not play, 1 - went first, 2 - went second, 3 - bye
+    - stol (board)
+    - wynik (result): presumably 0 for losing, 1 for drawing, 2 for winning, but not used in
+    Scrabble Manager import
+    - male_pkt (score)
+    - nr_przeciwnika (opponent ID): matches the order from .lte files
+    Args:
+        filename:
+
+    Returns:
+        List of tuples of five integers.
+    """
     struct_fmt = '=bBHHH'
     struct_len = struct.calcsize(struct_fmt)
     struct_unpack = struct.Struct(struct_fmt).unpack_from
@@ -38,6 +60,17 @@ def read_re(filename: Union[str, Path]) -> List[Tuple[int, int, int, int, int]]:
 
 
 def read_tin(filename: Union[str, Path]) -> Tuple[int, int, Tuple[int, int]]:
+    """
+    .tin files contain general info about a tournament. Some of the data are unused
+    (marked as "bridge rubbish"), some is redundant (number of players can be
+    read from .lte, number of rounds from .re), only the last tuple of two flags
+    is unique to this file - they specify winning criteria.
+    Args:
+        filename:
+
+    Returns:
+
+    """
     head_fmt = '=HHH7H'
     head_len = struct.calcsize(head_fmt)
     head_unpack = struct.Struct(head_fmt).unpack_from
