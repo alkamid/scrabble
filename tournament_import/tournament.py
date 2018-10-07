@@ -8,6 +8,23 @@ from reader import read_lte, read_tin, read_re
 from datetime import datetime
 
 
+class Player(object):
+    def __init__(self, id: int, name: str, rating: Optional[float]=None,
+                 team: Optional[str]=None) -> None:
+        self.id = id
+        self.name = name
+        name_split = self.name.split(',')
+        self.first_name = name_split[1].strip()
+        self.last_name = name_split[0].strip()
+        self.rating = rating
+        self.team = '' if team is None else team
+        self.wins = 0
+        self.score = 0
+
+    def __repr__(self) -> str:
+        return f'{self.first_name} {self.last_name}\t{self.team}\t{self.rating}'
+
+
 class Game(object):
     def __init__(self, round_no: int, board: int, id1: int=None, id2: int=None, score1: int=None, score2: int=None) -> None:
         self.round = round_no
@@ -79,7 +96,6 @@ class Tournament(object):
             for line in f:
                 re_split_line = re.search(re_name, line)
                 fields = re_split_line.group(2).split(';')
-                print(fields)
                 rating_and_opponents = fields.pop(0).split()
                 name = re_split_line.group(1).strip()
                 rating = rating_and_opponents[0]
@@ -90,8 +106,11 @@ class Tournament(object):
                         if field.startswith(' rtime'):
                             break
                         rtime_field += 1
-                    rtimes = fields.pop(rtime_field)[7:].split()
-                    self.date = int(rtimes[0])
+                    try:
+                        rtimes = fields.pop(rtime_field)[7:].split()
+                        self.date = int(rtimes[0])
+                    except IndexError:
+                        pass
 
                 team_field = 0
                 for field in fields:
@@ -278,17 +297,60 @@ class Tournament(object):
         games_list = [g for g in self.games if g.player1 == player_id or g.player2 == player_id]
         return sorted(games_list, key=lambda x: x.round)
 
+    def calculate_standings(self, after_round: int) -> List[Player]:
+        for player in self.players:
+            player.wins = 0
+            player.score = 0
+        for game in self.games:
+            if game.round > after_round:
+                continue
+            self.current_round = max(self.current_round, game.round)
+            p1 = self.players[game.player1 - 1]
+            p1.score += game.score1
+            if game.player2 is None and game.score1 == 300:
+                p1.wins += 0.5
+                continue
+            if game.player2 is not None:
+                p2 = self.players[game.player2 - 1]
+                p2.score += game.score2
+                p1.wins += int(game.score1 > game.score2)
+                p2.wins += int(game.score2 > game.score1)
+                if game.score1 == game.score2:
+                    p1.wins += 0.5
+                    p2.wins += 0.5
+        sorted_players = sorted(self.players, key=lambda p: p.wins*20000+p.score, reverse=True)
+        return sorted_players
 
-class Player(object):
-    def __init__(self, id: int, name: str, rating: Optional[float]=None,
-                 team: Optional[str]=None) -> None:
-        self.id = id
-        self.name = name
-        name_split = self.name.split(',')
-        self.first_name = name_split[1].strip()
-        self.last_name = name_split[0].strip()
-        self.rating = rating
-        self.team = '' if team is None else team
+    def simulate_lower_ranked_wins(self, which_round: int) -> None:
+        for game in self.games:
+            if game.round == which_round and game.player2 is not None:
+                p1 = self.players[game.player1-1]
+                p2 = self.players[game.player2-1]
+                if p1.wins == p2.wins:
+                    if p1.score >= p2.score:
+                        winner = p2
+                        loser = p1
+                    else:
+                        winner = p1
+                        loser = p2
+                elif p1.wins > p2.wins:
+                    winner = p2
+                    loser = p1
+                else:
+                    winner = p1
+                    loser = p2
+                winner.wins += 1
+                winner.score += 500
+                loser.score += 300
 
-    def __repr__(self) -> str:
-        return f'{self.first_name} {self.last_name}\t{self.team}\t{self.rating}'
+
+    def find_contenders(self, place: int=1,  rounds_left: int=None) -> List[Player]:
+        if rounds_left is None:
+            rounds_left = self.num_rounds - self.current_round
+
+        sorted_players = sorted(self.players, key=lambda p: p.wins*20000+p.score, reverse=True)
+        player_to_beat = sorted_players[place-1]
+        wins_to_gain = rounds_left
+        score_to_gain = rounds_left*600
+        contenders = [p for p in sorted_players if (p.wins + wins_to_gain >= player_to_beat.wins and p.score + score_to_gain >= player_to_beat.score)]
+        return contenders
