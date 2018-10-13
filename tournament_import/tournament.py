@@ -89,6 +89,17 @@ class Tournament(object):
                             assert game.score2 is None
                             game.score2 = score
 
+    def extract_field(self, field_list: List[str], field: str) -> str:
+        index = 0
+        for f in field_list:
+            if f.startswith(f' {field}'):
+                break
+            index += 1
+        try:
+            return field_list.pop(index)[len(field)+1:].strip()
+        except IndexError:
+            raise IndexError(f'Field "{field}" not found!')
+
     def read_from_t(self, filepath: Union[str, Path]) -> None:
         re_name = re.compile('(.*?)([0-9].*)')
         with open(filepath) as f:
@@ -101,41 +112,23 @@ class Tournament(object):
                 rating = rating_and_opponents[0]
 
                 if self.date is None:
-                    rtime_field = 0
-                    for field in fields:
-                        if field.startswith(' rtime'):
-                            break
-                        rtime_field += 1
                     try:
-                        rtimes = fields.pop(rtime_field)[7:].split()
-                        self.date = int(rtimes[0])
+                        self.date = int(self.extract_field(fields, 'rtime').split()[0])
                     except IndexError:
                         pass
 
-                team_field = 0
-                for field in fields:
-                    if field.startswith(' team'):
-                        break
-                    team_field += 1
-                team = fields.pop(team_field)[5:].strip()
+                try:
+                    team = self.extract_field(fields, 'team')
+                except IndexError:
+                    team = ''
+
                 new_player = Player(player_id, name, float(rating), team)
                 self.players.append(new_player)
+
                 opponents = [int(a) for a in rating_and_opponents[1:]]
                 scores = [int(a) for a in fields.pop(0).strip().split()]
-
-                board_field = 0
-                for field in fields:
-                    if field.startswith(' board'):
-                        break
-                    board_field += 1
-                boards = [int(a) for a in fields.pop(board_field)[6:].strip().split()]
-
-                who_first_field = 0
-                for field in fields:
-                    if field.startswith(' p12'):
-                        break
-                    who_first_field += 1
-                who_first_list = [int(a) for a in fields.pop(who_first_field)[4:].strip().split()]
+                boards = [int(a) for a in self.extract_field(fields, 'board').split()]
+                who_first_list = [int(a) for a in self.extract_field(fields, 'p12').split()]
 
                 assert all([a == 1 or a == 2 or a == 0 for a in who_first_list])
                 assert len(scores) == len(opponents) == len(boards) == len(who_first_list)
@@ -171,7 +164,7 @@ class Tournament(object):
     def export_t(self, output_filename: Union[str, Path], last_round: int=None) -> None:
         if last_round is None:
             last_round = self.num_rounds
-        game_info: List[Dict[str: List[int]]] = [{'round': [], 'board': [], 'p12': [], 'score': [], 'opponent': []} for a in range(len(self.players))]
+        game_info: List[Dict[str, List[int]]] = [{'round': [], 'board': [], 'p12': [], 'score': [], 'opponent': []} for a in range(len(self.players))]
         games_sorted = sorted(self.games, key=lambda x: x.round)
         for game in games_sorted:
             if game.round > last_round:
@@ -196,10 +189,13 @@ class Tournament(object):
             for i, player_info in enumerate(game_info):
                 player = self.players[i]
                 f.write(f'{player.last_name}, {player.first_name}\t{player.rating} ')
-                f.write(" ".join(player_info["opponent"]) + '; ')
-                f.write(" ".join(player_info['score']) + '; ')
-                f.write('board ' + " ".join(player_info['board']) + '; ')
-                f.write('p12 ' + " ".join(player_info['p12']) + '; ')
+                if last_round > 0:
+                    f.write(" ".join(player_info["opponent"]) + '; ')
+                    f.write(" ".join(player_info['score']) + '; ')
+                    f.write('board ' + " ".join(player_info['board']) + '; ')
+                    f.write('p12 ' + " ".join(player_info['p12']) + '; ')
+                else:
+                    f.write('; ;')
                 f.write('team ' + player.team)
                 f.write('\n')
 
@@ -342,7 +338,6 @@ class Tournament(object):
                 winner.wins += 1
                 winner.score += 500
                 loser.score += 300
-
 
     def find_contenders(self, place: int=1,  rounds_left: int=None) -> List[Player]:
         if rounds_left is None:
