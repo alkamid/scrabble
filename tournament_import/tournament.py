@@ -48,9 +48,9 @@ class Tournament(object):
             self.date = None
         else:
             self.date = datetime.strptime(date, format='%d/%m/%Y').timestamp()
-        self.num_rounds = None
-        self.players = []
-        self.games = []
+        self.num_rounds: int = 0
+        self.players: List[Player] = []
+        self.games: List[Game] = []
         self.current_round = 0
 
     def read_from_scrabble_manager(self, filepath: Union[str, Path]) -> None:
@@ -164,7 +164,7 @@ class Tournament(object):
     def export_t(self, output_filename: Union[str, Path], last_round: int=None) -> None:
         if last_round is None:
             last_round = self.num_rounds
-        game_info: List[Dict[str, List[int]]] = [{'round': [], 'board': [], 'p12': [], 'score': [], 'opponent': []} for a in range(len(self.players))]
+        game_info: List[Dict[str, List[str]]] = [{'board': [], 'p12': [], 'score': [], 'opponent': []} for a in range(len(self.players))]
         games_sorted = sorted(self.games, key=lambda x: x.round)
         for game in games_sorted:
             if game.round > last_round:
@@ -172,7 +172,6 @@ class Tournament(object):
             player1_info = game_info[game.player1-1]
             player1_info['board'].append(str(game.board))
             player1_info['score'].append(str(game.score1))
-            player1_info['round'].append(game.round)
             if game.player2 is not None:
                 player1_info['p12'].append('1')
                 player1_info['opponent'].append(str(game.player2))
@@ -181,7 +180,6 @@ class Tournament(object):
                 player2_info['p12'].append('2')
                 player2_info['score'].append(str(game.score2))
                 player2_info['opponent'].append(str(game.player1))
-                player2_info['round'].append(game.round)
             else:
                 player1_info['p12'].append('0')
                 player1_info['opponent'].append('0')
