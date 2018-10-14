@@ -12,8 +12,7 @@ class Player(object):
     def __init__(self, id: int, name: str, rating: Optional[float]=None,
                  team: Optional[str]=None) -> None:
         self.id = id
-        self.name = name
-        name_split = self.name.split(',')
+        name_split = name.split(',')
         self.first_name = name_split[1].strip()
         self.last_name = name_split[0].strip()
         self.rating = rating
@@ -48,7 +47,7 @@ class Tournament(object):
             self.date = None
         else:
             self.date = datetime.strptime(date, format='%d/%m/%Y').timestamp()
-        self.num_rounds: int = 0
+        self.num_rounds = 0
         self.players: List[Player] = []
         self.games: List[Game] = []
         self.current_round = 0
@@ -63,12 +62,12 @@ class Tournament(object):
 
         _, self.num_rounds, _ = read_tin(fpath_no_suffix + '.tin')
         games = read_re(fpath_no_suffix + '.re')
-        for i, (state, board, result, score, opponent) in enumerate(games[:-3]):
+        for i, (state, board, result, score, opponent) in enumerate(games):
             player_id = i // (self.num_rounds+1) + 1
             round_no = i % (self.num_rounds+1) + 1
             if round_no == self.num_rounds+1:
                 continue
-            if opponent == 0:
+            if opponent == 0:  # BYE or inactive
                 self.games.append(Game(round_no, board=0, id1=player_id, score1=score))
             elif opponent > player_id:
                 if state == 1:
@@ -89,17 +88,6 @@ class Tournament(object):
                             assert game.score2 is None
                             game.score2 = score
 
-    def extract_field(self, field_list: List[str], field: str) -> str:
-        index = 0
-        for f in field_list:
-            if f.startswith(f' {field}'):
-                break
-            index += 1
-        try:
-            return field_list.pop(index)[len(field)+1:].strip()
-        except IndexError:
-            raise IndexError(f'Field "{field}" not found!')
-
     def read_from_t(self, filepath: Union[str, Path]) -> None:
         re_name = re.compile('(.*?)([0-9].*)')
         with open(filepath) as f:
@@ -113,12 +101,12 @@ class Tournament(object):
 
                 if self.date is None:
                     try:
-                        self.date = int(self.extract_field(fields, 'rtime').split()[0])
+                        self.date = int(extract_field(fields, 'rtime').split()[0])
                     except IndexError:
                         pass
 
                 try:
-                    team = self.extract_field(fields, 'team')
+                    team = extract_field(fields, 'team')
                 except IndexError:
                     team = ''
 
@@ -127,8 +115,8 @@ class Tournament(object):
 
                 opponents = [int(a) for a in rating_and_opponents[1:]]
                 scores = [int(a) for a in fields.pop(0).strip().split()]
-                boards = [int(a) for a in self.extract_field(fields, 'board').split()]
-                who_first_list = [int(a) for a in self.extract_field(fields, 'p12').split()]
+                boards = [int(a) for a in extract_field(fields, 'board').split()]
+                who_first_list = [int(a) for a in extract_field(fields, 'p12').split()]
 
                 assert all([a == 1 or a == 2 or a == 0 for a in who_first_list])
                 assert len(scores) == len(opponents) == len(boards) == len(who_first_list)
@@ -193,7 +181,7 @@ class Tournament(object):
                     f.write('board ' + " ".join(player_info['board']) + '; ')
                     f.write('p12 ' + " ".join(player_info['p12']) + '; ')
                 else:
-                    f.write('; ;')
+                    f.write('; ; ')
                 f.write('team ' + player.team)
                 f.write('\n')
 
@@ -347,3 +335,15 @@ class Tournament(object):
         score_to_gain = rounds_left*600
         contenders = [p for p in sorted_players if (p.wins + wins_to_gain >= player_to_beat.wins and p.score + score_to_gain >= player_to_beat.score)]
         return contenders
+
+
+def extract_field(field_list: List[str], field: str) -> str:
+    index = 0
+    for f in field_list:
+        if f.startswith(f' {field}'):
+            break
+        index += 1
+    try:
+        return field_list.pop(index)[len(field)+1:].strip()
+    except IndexError:
+        raise IndexError(f'Field "{field}" not found!')

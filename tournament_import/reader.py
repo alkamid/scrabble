@@ -56,7 +56,7 @@ def read_re(filename: Union[str, Path]) -> List[Tuple[int, int, int, int, int]]:
     with open(filename, "rb") as f:
         results = [struct_unpack(chunk) for chunk in read_chunks(f, struct_len)]
 
-    return results
+    return results[:-3]  # last 3 games are meaningless
 
 
 def read_tin(filename: Union[str, Path]) -> Tuple[int, int, Tuple[int, int]]:
