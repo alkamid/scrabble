@@ -53,6 +53,22 @@ class Tournament(object):
         self.current_round = 0
 
     def read_from_scrabble_manager(self, filepath: Union[str, Path]) -> None:
+        """
+        Scrabble Manager has been used on all PFS tournaments since late 90s/early 00s. It is capable
+        of exporting individual tournaments with a "Eksport do starego KOPSa" option. It generates
+        five files with the same name, but different extensions:
+        1) .re — all game results (binary)
+        2) .lte — player list (text)
+        3) .tin — tournament info: no of players, no of rounds, flags for winning criteria (binary)
+        4) .nag — tournament name (text)
+        5) .smt — again, tournament info (text)
+
+        Args:
+            filepath: path to any of the five files
+
+        Returns:
+            None. Populates self.games, self.players etc.
+        """
         fpath_no_suffix = str(Path(filepath).parent / Path(filepath).stem)
         players = read_lte(fpath_no_suffix + '.lte')
         for i, (name, town, rating) in enumerate(players):
@@ -89,6 +105,16 @@ class Tournament(object):
                             game.score2 = score
 
     def read_from_t(self, filepath: Union[str, Path]) -> None:
+        """
+        .t files are used by tsh to manage tournaments. They comprise all the required info (players,
+        scores, boards, who went first, etc.).
+        Args:
+            filepath:
+
+        Returns:
+            None. Populates self.games and self.players.
+
+        """
         re_name = re.compile('(.*?)([0-9].*)')
         with open(filepath) as f:
             player_id = 1
@@ -241,9 +267,9 @@ class Tournament(object):
 
                     struct_packed = pack(struct_fmt, state, board, result, score, opponent)
                     f.write(struct_packed)
-                last_game = pack(struct_fmt, 0, 0, 32767, 32767, 0)
+                last_game = pack(struct_fmt, 0, 0, 32767, 32767, 0)  # just a tuple SM uses to mark the end of player's game list
                 f.write(last_game)
-            last_three = pack(struct_fmt, 1, 0, self.num_rounds + 1, 32767, 0)
+            last_three = pack(struct_fmt, 1, 0, self.num_rounds + 1, 32767, 0)  # SM writes three tuples like those at the end of the game list
             for i in range(3):
                 f.write(last_three)
 
