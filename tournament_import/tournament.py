@@ -17,7 +17,7 @@ class Player(object):
         self.last_name = name_split[0].strip()
         self.rating = rating
         self.team = '' if team is None else team
-        self.wins = 0
+        self.wins = 0.
         self.score = 0
 
     def __repr__(self) -> str:
@@ -120,6 +120,8 @@ class Tournament(object):
             player_id = 1
             for line in f:
                 re_split_line = re.search(re_name, line)
+                if re_split_line is None:
+                    raise ValueError('Corrupted .t file!')
                 fields = re_split_line.group(2).split(';')
                 rating_and_opponents = fields.pop(0).split()
                 name = re_split_line.group(1).strip()
@@ -183,6 +185,7 @@ class Tournament(object):
         for game in games_sorted:
             if game.round > last_round:
                 continue
+            assert game.player1 is not None and game.score1 is not None
             player1_info = game_info[game.player1-1]
             player1_info['board'].append(str(game.board))
             player1_info['score'].append(str(game.score1))
@@ -232,7 +235,8 @@ class Tournament(object):
             f.write(pack('=7H', 0, 0, 0, 0, 0, 0, 0))
             f.write(pack(f'={num_players}H', *player_numbers))
             f.write(pack('=2H', 1, 3))
-        utime(output_filename, times=(self.date, self.date))
+        if self.date is not None:
+            utime(output_filename, times=(self.date, self.date))
 
     def export_re(self, output_filename: Union[str, Path]) -> None:
         struct_fmt = '=bBHHH'
@@ -274,6 +278,8 @@ class Tournament(object):
                 f.write(last_three)
 
     def export_smt(self, output_filename: Union[str, Path]) -> None:
+        if self.date is None:
+            raise ValueError('Tournament date (self.date) must be set in order to export .smt!')
         midnight_today = datetime.fromtimestamp(self.date)
         days_from_1900 = (midnight_today - datetime(1899, 12, 30, 0, 0)).days
         days_str = f'{days_from_1900:.6f}'
@@ -307,11 +313,12 @@ class Tournament(object):
 
     def calculate_standings(self, after_round: int) -> List[Player]:
         for player in self.players:
-            player.wins = 0
+            player.wins = 0.
             player.score = 0
         for game in self.games:
             if game.round > after_round:
                 continue
+            assert game.player1 is not None and game.score1 is not None
             self.current_round = max(self.current_round, game.round)
             p1 = self.players[game.player1 - 1]
             p1.score += game.score1
@@ -319,6 +326,7 @@ class Tournament(object):
                 p1.wins += 0.5
                 continue
             if game.player2 is not None:
+                assert game.score2 is not None
                 p2 = self.players[game.player2 - 1]
                 p2.score += game.score2
                 p1.wins += int(game.score1 > game.score2)
@@ -332,6 +340,7 @@ class Tournament(object):
     def simulate_lower_ranked_wins(self, which_round: int) -> None:
         for game in self.games:
             if game.round == which_round and game.player2 is not None:
+                assert game.player1 is not None
                 p1 = self.players[game.player1-1]
                 p2 = self.players[game.player2-1]
                 if p1.wins == p2.wins:
